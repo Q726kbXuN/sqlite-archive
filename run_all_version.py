@@ -17,6 +17,10 @@ To use, run a command like:
 {sys.argv[0]} "sqlite3 < test.sql"
 
 'sqlite3' will automatically be replaced with each filename in turn.
+Multiple commands can be run, separated by a semicolon.  The special
+command "reset" will remove any files that were created in the current
+folder after a run.
+
 Use --debug to use debug executables.
 """)
     exit(1)
@@ -44,8 +48,16 @@ for cur in os.listdir("archive"):
                         print("", flush=True)
                         print(f"----- Running on {ver}{' (debug)' if debug else ''} -----", flush=True)
                         subprocess.check_call([fn, "--version"])
+
+                        files = set(x for x in os.listdir(".") if os.path.isfile(x))
                         cmd = args[0].replace("sqlite3", fn)
-                        subprocess.call(cmd, shell=True)
+                        for sub_cmd in cmd.split(";"):
+                            if sub_cmd.strip().lower() == "reset":
+                                for test in os.listdir("."):
+                                    if os.path.isfile(test) and test not in files:
+                                        os.unlink(test)
+                            else:
+                                subprocess.call(sub_cmd, shell=True)
                         os.unlink(fn)
 
                         break
