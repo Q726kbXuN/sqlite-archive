@@ -46,8 +46,8 @@ for cur in os.listdir("archive"):
                                 f_dest.write(f_src.read())
 
                         print("", flush=True)
-                        print(f"----- Running on {ver}{' (debug)' if debug else ''} -----", flush=True)
-                        subprocess.check_call([fn, "--version"])
+                        sqlite_ver = subprocess.check_output([fn, "--version"]).decode("utf-8").strip()
+                        print(f"# {sqlite_ver}{' (debug)' if debug else ''}", flush=True)
 
                         files = set(x for x in os.listdir(".") if os.path.isfile(x))
                         cmd = args[0].replace("sqlite3", fn)
