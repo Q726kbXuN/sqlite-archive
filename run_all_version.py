@@ -5,6 +5,7 @@ from zipfile import ZipFile
 import re
 import subprocess
 import sys
+import json
 
 args = [x for x in sys.argv[1:] if x not in {"--debug"}]
 debug = "--debug" in sys.argv[1:]
@@ -25,10 +26,19 @@ Use --debug to use debug executables.
 """)
     exit(1)
 
+SHOW_VERSION_INFO = False
+
 if debug:
     r = re.compile("sqlite-shell-win-debug-([0-9]+).zip")
 else:
     r = re.compile("sqlite-(shell-win32-x86-|tools-win32-x86-|)3[0-9._]+zip")
+
+versions = {}
+if SHOW_VERSION_INFO:
+    with open("versions.jsonl") as f:
+        for cur in f:
+            dir_name, date, ver = json.loads(cur)
+            versions[dir_name] = f"{ver} ({date})"
 
 for cur in os.listdir("archive"):
     ver = cur
@@ -47,6 +57,8 @@ for cur in os.listdir("archive"):
 
                         print("", flush=True)
                         sqlite_ver = subprocess.check_output([fn, "--version"]).decode("utf-8").strip()
+                        if SHOW_VERSION_INFO:
+                            print(f"# {versions.get(ver, ver)}", flush=True)
                         print(f"# {sqlite_ver}{' (debug)' if debug else ''}", flush=True)
 
                         files = set(x for x in os.listdir(".") if os.path.isfile(x))
