@@ -69,7 +69,9 @@ for cur in os.listdir("archive"):
                                     if os.path.isfile(test) and test not in files:
                                         os.unlink(test)
                             else:
-                                subprocess.call(sub_cmd, shell=True)
+                                ret = subprocess.call(sub_cmd, shell=True)
+                                if ret != 0:
+                                    print("EXIT CODE: " + str(ret))
                         os.unlink(fn)
 
                         break
