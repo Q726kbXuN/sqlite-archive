@@ -44,7 +44,7 @@ def main():
 
         use = False
         if ver in href:
-            for token in ["source", "amalgamation", "shell", "tools", "dll"]:
+            for token in ["source", "amalgamation", "shell", "tools", "dll", "wasm"]:
                 if token in href:
                     use = True
             for token in ["html", "snapshot"]:
