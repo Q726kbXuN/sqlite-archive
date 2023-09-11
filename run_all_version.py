@@ -1,77 +1,75 @@
 #!/usr/bin/env python3
 
-import os
 from zipfile import ZipFile
+import json
+import os
 import re
+import shutil
 import subprocess
 import sys
-import json
+import textwrap
 
-args = [x for x in sys.argv[1:] if x not in {"--debug"}]
-debug = "--debug" in sys.argv[1:]
+def show_help():
+    print(textwrap.dedent(f"""
+        This runs a command on all versions of sqlite3.exe in the "archive" folder.
 
-if len(args) != 1:
-    print(f"""
-This runs a command on all versions of sqlite3.exe in the "archive" folder.
+        To use, run a command like:
+        {sys.argv[0]} "sqlite3 < test.sql"
 
-To use, run a command like:
-{sys.argv[0]} "sqlite3 < test.sql"
+        'sqlite3' will automatically be replaced with each filename in turn.
+        Multiple commands can be run, separated by a semicolon.  The special
+        command "reset" will remove any files that were created in the current
+        folder after a run.
 
-'sqlite3' will automatically be replaced with each filename in turn.
-Multiple commands can be run, separated by a semicolon.  The special
-command "reset" will remove any files that were created in the current
-folder after a run.
+        Use --debug to use debug executables.
+    """))
 
-Use --debug to use debug executables.
-""")
-    exit(1)
+def run_sqlite(temp_fn, args, current_files):
+    cmd = args[0].replace("sqlite3", temp_fn)
+    for sub_cmd in cmd.split(";"):
+        if sub_cmd.strip().lower() == "reset":
+            for test in os.listdir("."):
+                if os.path.isfile(test) and test not in current_files:
+                    os.unlink(test)
+        else:
+            ret = subprocess.call(sub_cmd, shell=True)
+            if ret != 0:
+                print("EXIT CODE: " + str(ret))
 
-SHOW_VERSION_INFO = False
-
-if debug:
-    r = re.compile("sqlite-shell-win-debug-([0-9]+).zip")
-else:
-    r = re.compile("sqlite-(shell-win32-x86-|tools-win32-x86-|)3[0-9._]+zip")
-
-versions = {}
-if SHOW_VERSION_INFO:
+def enum_versions():
     with open("versions.jsonl") as f:
-        for cur in f:
-            dir_name, date, ver = json.loads(cur)
-            versions[dir_name] = f"{ver} ({date})"
+        for row in f:
+            if len(row):
+                yield json.loads(row)
 
-for cur in os.listdir("archive"):
-    ver = cur
-    found = False
-    cur = os.path.join("archive", cur)
-    for x in os.listdir(cur):
-        if r.search(x):
-            with ZipFile(os.path.join(cur, x)) as zf:
-                for inzip in zf.namelist():
-                    if inzip.endswith("sqlite3.exe"):
+def main():
+    args = [x for x in sys.argv[1:] if x not in {"--debug"}]
+    debug = "--debug" in sys.argv[1:]
 
-                        fn = f"temp_{ver}_sqlite3.exe"
-                        with zf.open(inzip, "r") as f_src:
-                            with open(fn, "wb") as f_dest:
-                                f_dest.write(f_src.read())
+    if len(args) != 1:
+        show_help()
+        exit(1)
 
-                        print("", flush=True)
-                        sqlite_ver = subprocess.check_output([fn, "--version"]).decode("utf-8").strip()
-                        if SHOW_VERSION_INFO:
-                            print(f"# {versions.get(ver, ver)}", flush=True)
-                        print(f"# {sqlite_ver}{' (debug)' if debug else ''}", flush=True)
+    if debug:
+        r = re.compile("sqlite-shell-win-debug-([0-9]+).zip")
+    else:
+        r = re.compile("sqlite-(shell-win32-x86-|tools-win32-x86-|)[0-9._]+zip")
 
-                        files = set(x for x in os.listdir(".") if os.path.isfile(x))
-                        cmd = args[0].replace("sqlite3", fn)
-                        for sub_cmd in cmd.split(";"):
-                            if sub_cmd.strip().lower() == "reset":
-                                for test in os.listdir("."):
-                                    if os.path.isfile(test) and test not in files:
-                                        os.unlink(test)
-                            else:
-                                ret = subprocess.call(sub_cmd, shell=True)
-                                if ret != 0:
-                                    print("EXIT CODE: " + str(ret))
-                        os.unlink(fn)
+    for dir_name, date, ver in enum_versions():
+        archive_names = [x for x in os.listdir(os.path.join("archive", dir_name)) if r.search(x)]
+        if archive_names:
+            with ZipFile(os.path.join("archive", dir_name, archive_names[0])) as zf:
+                zip_files = [x for x in zf.namelist() if x.endswith("sqlite3.exe")]
+                if zip_files:
+                    temp_fn = f"temp_sqlite3_{ver}.exe"
+                    with open(temp_fn, "wb") as f_dest, zf.open(zip_files[0], "r") as f_src:
+                        shutil.copyfileobj(f_src, f_dest)
 
-                        break
+                    current_files = set(x for x in os.listdir(".") if os.path.isfile(x))
+                    print("", flush=True)
+                    print(f"# {ver}{' (debug)' if debug else ''}, released {date}", flush=True)
+                    run_sqlite(temp_fn, args, current_files)
+                    os.unlink(temp_fn)
+
+if __name__ == "__main__":
+    main()
