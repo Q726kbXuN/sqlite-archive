@@ -53,7 +53,7 @@ def main():
     if debug:
         r = re.compile("sqlite-shell-win-debug-([0-9]+).zip")
     else:
-        r = re.compile("sqlite-(shell-win32-x86-|tools-win32-x86-|)[0-9._]+zip")
+        r = re.compile("sqlite-(shell-(win32-x86|win-x64)-|tools-(win32-x86|win-x64)-|)[0-9._]+zip")
 
     for dir_name, date, ver in enum_versions():
         archive_names = [x for x in os.listdir(os.path.join("archive", dir_name)) if r.search(x)]
