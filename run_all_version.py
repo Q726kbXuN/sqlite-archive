@@ -1,13 +1,7 @@
 #!/usr/bin/env python3
 
 from zipfile import ZipFile
-import json
-import os
-import re
-import shutil
-import subprocess
-import sys
-import textwrap
+import json, os, platform, re, shutil, subprocess, sys, textwrap, time
 
 def show_help():
     print(textwrap.dedent(f"""
@@ -53,7 +47,12 @@ def main():
     if debug:
         r = re.compile("sqlite-shell-win-debug-([0-9]+).zip")
     else:
-        r = re.compile("sqlite-(shell-(win32-x86|win-x64)-|tools-(win32-x86|win-x64)-|)[0-9._]+zip")
+        if platform.machine().lower() in {"amd64", "x86_64"}:
+            r = re.compile("sqlite-(shell-(win32-x86|win-x64)-|tools-(win32-x86|win-x64)-|)[0-9._]+zip")
+        elif platform.machine().lower() in {"arm64", "aarch64"}:
+            r = re.compile("sqlite-(shell-(win-arm64)-|tools-(win-arm64)-)[0-9._]+zip")
+        else:
+            raise Exception("Unknown platform")
 
     for dir_name, date, ver in enum_versions():
         archive_names = [x for x in os.listdir(os.path.join("archive", dir_name)) if r.search(x)]
@@ -69,7 +68,17 @@ def main():
                     print("", flush=True)
                     print(f"# {ver}{' (debug)' if debug else ''}, released {date}", flush=True)
                     run_sqlite(temp_fn, args, current_files)
-                    os.unlink(temp_fn)
+
+                    bail = 10
+                    while True:
+                        try:
+                            os.unlink(temp_fn)
+                            break
+                        except:
+                            bail -= 1
+                            if bail == 0:
+                                raise
+                            time.sleep(0.1)
 
 if __name__ == "__main__":
     main()
